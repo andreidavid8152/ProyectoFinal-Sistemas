@@ -1,0 +1,16 @@
+@startuml
+title Failure + Retry + DLQ
+participant "Payment Service" as Payment
+participant "Message Broker" as Broker
+participant "DLQ" as DLQ
+participant "Order API" as OrderApi
+
+Broker -> Payment: PaymentRequested
+Payment -> Payment: fail (simulated)
+Payment -> Broker: nack / retry
+Broker -> Payment: retry N
+Payment -> Broker: reject
+Broker -> DLQ: move to DLQ
+Broker -> OrderApi: OrderRejected
+@enduml
+

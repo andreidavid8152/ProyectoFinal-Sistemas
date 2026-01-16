@@ -1,0 +1,417 @@
+{
+  "vhosts": [
+    {
+      "name": "/"
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "integrahub.events",
+      "vhost": "/",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "integrahub.events.raw",
+      "vhost": "/",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "integrahub.commands",
+      "vhost": "/",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "integrahub.dlx",
+      "vhost": "/",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    }
+  ],
+  "queues": [
+    {
+      "name": "q.events.raw",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "integrahub.dlx",
+        "x-dead-letter-routing-key": "retry.events.raw"
+      }
+    },
+    {
+      "name": "q.events.raw.retry",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-message-ttl": 5000,
+        "x-dead-letter-exchange": "integrahub.dlx",
+        "x-dead-letter-routing-key": "main.events.raw"
+      }
+    },
+    {
+      "name": "q.events.raw.dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "q.inventory.reserve",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "integrahub.dlx",
+        "x-dead-letter-routing-key": "retry.inventory.reserve"
+      }
+    },
+    {
+      "name": "q.inventory.reserve.retry",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-message-ttl": 5000,
+        "x-dead-letter-exchange": "integrahub.dlx",
+        "x-dead-letter-routing-key": "main.inventory.reserve"
+      }
+    },
+    {
+      "name": "q.inventory.reserve.dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "q.payment.process",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "integrahub.dlx",
+        "x-dead-letter-routing-key": "retry.payment.process"
+      }
+    },
+    {
+      "name": "q.payment.process.retry",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-message-ttl": 5000,
+        "x-dead-letter-exchange": "integrahub.dlx",
+        "x-dead-letter-routing-key": "main.payment.process"
+      }
+    },
+    {
+      "name": "q.payment.process.dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "q.notifications",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "integrahub.dlx",
+        "x-dead-letter-routing-key": "retry.notifications"
+      }
+    },
+    {
+      "name": "q.notifications.retry",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-message-ttl": 5000,
+        "x-dead-letter-exchange": "integrahub.dlx",
+        "x-dead-letter-routing-key": "main.notifications"
+      }
+    },
+    {
+      "name": "q.notifications.dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "q.order.status",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "integrahub.dlx",
+        "x-dead-letter-routing-key": "retry.order.status"
+      }
+    },
+    {
+      "name": "q.order.status.retry",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-message-ttl": 5000,
+        "x-dead-letter-exchange": "integrahub.dlx",
+        "x-dead-letter-routing-key": "main.order.status"
+      }
+    },
+    {
+      "name": "q.order.status.dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "q.analytics",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "integrahub.dlx",
+        "x-dead-letter-routing-key": "retry.analytics"
+      }
+    },
+    {
+      "name": "q.analytics.retry",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-message-ttl": 5000,
+        "x-dead-letter-exchange": "integrahub.dlx",
+        "x-dead-letter-routing-key": "main.analytics"
+      }
+    },
+    {
+      "name": "q.analytics.dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    }
+  ],
+  "bindings": [
+    {
+      "source": "integrahub.events.raw",
+      "vhost": "/",
+      "destination": "q.events.raw",
+      "destination_type": "queue",
+      "routing_key": "events.raw",
+      "arguments": {}
+    },
+    {
+      "source": "integrahub.dlx",
+      "vhost": "/",
+      "destination": "q.events.raw.retry",
+      "destination_type": "queue",
+      "routing_key": "retry.events.raw",
+      "arguments": {}
+    },
+    {
+      "source": "integrahub.dlx",
+      "vhost": "/",
+      "destination": "q.events.raw",
+      "destination_type": "queue",
+      "routing_key": "main.events.raw",
+      "arguments": {}
+    },
+    {
+      "source": "integrahub.dlx",
+      "vhost": "/",
+      "destination": "q.events.raw.dlq",
+      "destination_type": "queue",
+      "routing_key": "dlq.events.raw",
+      "arguments": {}
+    },
+    {
+      "source": "integrahub.commands",
+      "vhost": "/",
+      "destination": "q.inventory.reserve",
+      "destination_type": "queue",
+      "routing_key": "inventory.reserve",
+      "arguments": {}
+    },
+    {
+      "source": "integrahub.dlx",
+      "vhost": "/",
+      "destination": "q.inventory.reserve.retry",
+      "destination_type": "queue",
+      "routing_key": "retry.inventory.reserve",
+      "arguments": {}
+    },
+    {
+      "source": "integrahub.dlx",
+      "vhost": "/",
+      "destination": "q.inventory.reserve",
+      "destination_type": "queue",
+      "routing_key": "main.inventory.reserve",
+      "arguments": {}
+    },
+    {
+      "source": "integrahub.dlx",
+      "vhost": "/",
+      "destination": "q.inventory.reserve.dlq",
+      "destination_type": "queue",
+      "routing_key": "dlq.inventory.reserve",
+      "arguments": {}
+    },
+    {
+      "source": "integrahub.commands",
+      "vhost": "/",
+      "destination": "q.payment.process",
+      "destination_type": "queue",
+      "routing_key": "payment.process",
+      "arguments": {}
+    },
+    {
+      "source": "integrahub.dlx",
+      "vhost": "/",
+      "destination": "q.payment.process.retry",
+      "destination_type": "queue",
+      "routing_key": "retry.payment.process",
+      "arguments": {}
+    },
+    {
+      "source": "integrahub.dlx",
+      "vhost": "/",
+      "destination": "q.payment.process",
+      "destination_type": "queue",
+      "routing_key": "main.payment.process",
+      "arguments": {}
+    },
+    {
+      "source": "integrahub.dlx",
+      "vhost": "/",
+      "destination": "q.payment.process.dlq",
+      "destination_type": "queue",
+      "routing_key": "dlq.payment.process",
+      "arguments": {}
+    },
+    {
+      "source": "integrahub.events",
+      "vhost": "/",
+      "destination": "q.notifications",
+      "destination_type": "queue",
+      "routing_key": "order.#",
+      "arguments": {}
+    },
+    {
+      "source": "integrahub.dlx",
+      "vhost": "/",
+      "destination": "q.notifications.retry",
+      "destination_type": "queue",
+      "routing_key": "retry.notifications",
+      "arguments": {}
+    },
+    {
+      "source": "integrahub.dlx",
+      "vhost": "/",
+      "destination": "q.notifications",
+      "destination_type": "queue",
+      "routing_key": "main.notifications",
+      "arguments": {}
+    },
+    {
+      "source": "integrahub.dlx",
+      "vhost": "/",
+      "destination": "q.notifications.dlq",
+      "destination_type": "queue",
+      "routing_key": "dlq.notifications",
+      "arguments": {}
+    },
+    {
+      "source": "integrahub.events",
+      "vhost": "/",
+      "destination": "q.order.status",
+      "destination_type": "queue",
+      "routing_key": "order.confirmed",
+      "arguments": {}
+    },
+    {
+      "source": "integrahub.events",
+      "vhost": "/",
+      "destination": "q.order.status",
+      "destination_type": "queue",
+      "routing_key": "order.rejected",
+      "arguments": {}
+    },
+    {
+      "source": "integrahub.dlx",
+      "vhost": "/",
+      "destination": "q.order.status.retry",
+      "destination_type": "queue",
+      "routing_key": "retry.order.status",
+      "arguments": {}
+    },
+    {
+      "source": "integrahub.dlx",
+      "vhost": "/",
+      "destination": "q.order.status",
+      "destination_type": "queue",
+      "routing_key": "main.order.status",
+      "arguments": {}
+    },
+    {
+      "source": "integrahub.dlx",
+      "vhost": "/",
+      "destination": "q.order.status.dlq",
+      "destination_type": "queue",
+      "routing_key": "dlq.order.status",
+      "arguments": {}
+    },
+    {
+      "source": "integrahub.events",
+      "vhost": "/",
+      "destination": "q.analytics",
+      "destination_type": "queue",
+      "routing_key": "#",
+      "arguments": {}
+    },
+    {
+      "source": "integrahub.dlx",
+      "vhost": "/",
+      "destination": "q.analytics.retry",
+      "destination_type": "queue",
+      "routing_key": "retry.analytics",
+      "arguments": {}
+    },
+    {
+      "source": "integrahub.dlx",
+      "vhost": "/",
+      "destination": "q.analytics",
+      "destination_type": "queue",
+      "routing_key": "main.analytics",
+      "arguments": {}
+    },
+    {
+      "source": "integrahub.dlx",
+      "vhost": "/",
+      "destination": "q.analytics.dlq",
+      "destination_type": "queue",
+      "routing_key": "dlq.analytics",
+      "arguments": {}
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+@startuml
+title Create Order (E2E)
+actor Client
+participant "Demo Portal" as Portal
+participant "Order API" as OrderApi
+participant "Message Broker" as Broker
+participant "Inventory Service" as Inventory
+participant "Payment Service" as Payment
+participant "Notification Service" as Notify
+
+Client -> Portal: Create order
+Portal -> OrderApi: POST /orders
+OrderApi -> Broker: publish OrderCreated
+Broker -> Inventory: OrderCreated
+Inventory -> Broker: InventoryReserved
+Broker -> Payment: InventoryReserved
+Payment -> Broker: PaymentApproved
+Broker -> OrderApi: OrderConfirmed
+OrderApi -> Portal: Order status
+Broker -> Notify: OrderConfirmed
+@enduml
+
