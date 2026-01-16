@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>IntegraHub Demo Portal</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <script defer src="/app.js"></script>
+  </head>
+  <body>
+    <div class="backdrop"></div>
+    <header class="hero">
+      <div class="hero-left">
+        <span class="badge">IntegraHub</span>
+        <h1>Demo Portal</h1>
+        <p>
+          Control center for pedidos, integracion y estado del sistema en
+          tiempo real.
+        </p>
+      </div>
+      <div class="hero-right">
+        <div class="metric-card">
+          <span class="metric-label">Pedidos creados</span>
+          <span id="metric-orders" class="metric-value">0</span>
+        </div>
+        <div class="metric-card">
+          <span class="metric-label">Estado sistema</span>
+          <span id="metric-system" class="metric-value">--</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="grid">
+      <section class="panel" style="--delay: 0.05s">
+        <header class="panel-header">
+          <h2>Acceso JWT</h2>
+          <span class="tag">Auth</span>
+        </header>
+        <form id="token-form" class="stack">
+          <label class="field">
+            <span>Usuario</span>
+            <input id="auth-user" type="text" placeholder="demo" autocomplete="username" />
+          </label>
+          <label class="field">
+            <span>Password</span>
+            <input
+              id="auth-pass"
+              type="password"
+              placeholder="demo"
+              autocomplete="current-password"
+            />
+          </label>
+          <button type="submit" class="primary">Obtener token</button>
+          <div id="token-status" class="hint"></div>
+        </form>
+        <div class="token-box">
+          <div class="token-header">
+            <span>Bearer token</span>
+            <button id="clear-token" class="ghost" type="button">Limpiar</button>
+          </div>
+          <textarea id="token-input" rows="4" placeholder="Pega o genera un token"></textarea>
+          <button id="save-token" class="ghost" type="button">Guardar token</button>
+        </div>
+      </section>
+
+      <section class="panel" style="--delay: 0.12s">
+        <header class="panel-header">
+          <h2>Crear pedido</h2>
+          <span class="tag">Order API</span>
+        </header>
+        <form id="order-form" class="stack">
+          <div id="items" class="items"></div>
+          <div class="inline-actions">
+            <button id="add-item" type="button" class="ghost">Agregar item</button>
+          </div>
+          <div class="field-row">
+            <label class="field">
+              <span>Moneda</span>
+              <input id="currency" type="text" value="USD" />
+            </label>
+            <label class="field">
+              <span>Total</span>
+              <input id="total" type="number" step="0.01" value="0" />
+            </label>
+          </div>
+          <button type="submit" class="primary">Crear pedido demo</button>
+          <div id="order-status" class="hint"></div>
+        </form>
+      </section>
+
+      <section class="panel wide" style="--delay: 0.18s">
+        <header class="panel-header">
+          <h2>Pedidos recientes</h2>
+          <span class="tag">Tracking</span>
+        </header>
+        <div id="orders-list" class="orders"></div>
+        <div class="inline-actions">
+          <button id="refresh-orders" type="button" class="ghost">
+            Actualizar estados
+          </button>
+          <button id="clear-orders" type="button" class="ghost">
+            Limpiar lista
+          </button>
+        </div>
+      </section>
+
+      <section class="panel" style="--delay: 0.25s">
+        <header class="panel-header">
+          <h2>System Status</h2>
+          <span class="tag">Live</span>
+        </header>
+        <div id="status-list" class="status-list"></div>
+        <div class="inline-actions">
+          <button id="refresh-status" type="button" class="ghost">
+            Actualizar
+          </button>
+          <label class="toggle">
+            <input id="status-auto" type="checkbox" checked />
+            <span>Auto refresh</span>
+          </label>
+        </div>
+        <div id="status-updated" class="hint"></div>
+      </section>
+
+      <section class="panel" style="--delay: 0.32s">
+        <header class="panel-header">
+          <h2>Accesos rapidos</h2>
+          <span class="tag">Links</span>
+        </header>
+        <div class="links">
+          <a id="link-swagger" class="link-card" href="#" target="_blank" rel="noreferrer">
+            <span>Swagger UI</span>
+            <small>Order API</small>
+          </a>
+          <a id="link-auth" class="link-card" href="#" target="_blank" rel="noreferrer">
+            <span>Token</span>
+            <small>Auth service</small>
+          </a>
+          <a id="link-rabbit" class="link-card" href="#" target="_blank" rel="noreferrer">
+            <span>RabbitMQ</span>
+            <small>Broker UI</small>
+          </a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>IntegraHub demo build</span>
+      <span id="build-time"></span>
+    </footer>
+  </body>
+</html>
