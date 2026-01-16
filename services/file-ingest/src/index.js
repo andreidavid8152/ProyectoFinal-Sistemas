@@ -1,4 +1,5 @@
 import fs from "fs";
+import http from "http";
 import path from "path";
 import { parse } from "csv-parse/sync";
 import { Pool } from "pg";
@@ -10,13 +11,22 @@ const cfg = {
   dbUser: process.env.DB_USER || "integrahub",
   dbPassword: process.env.DB_PASSWORD || "change_me",
   dbName: process.env.DB_NAME || "integrahub",
+  dbStatementTimeoutMs: parseInt(
+    process.env.DB_STATEMENT_TIMEOUT_MS || "4000",
+    10
+  ),
+  dbConnectionTimeoutMs: parseInt(
+    process.env.DB_CONNECTION_TIMEOUT_MS || "5000",
+    10
+  ),
   inboxPath: process.env.INBOX_PATH || "/data/inbox",
   processedPath: process.env.PROCESSED_PATH || "/data/processed",
   errorPath: process.env.ERROR_PATH || "/data/errors",
   pollIntervalMs: parseInt(process.env.POLL_INTERVAL_MS || "5000", 10),
   csvDelimiter: process.env.CSV_DELIMITER || ",",
   csvHasHeader: parseBool(process.env.CSV_HAS_HEADER, true),
-  fileExtension: ".csv"
+  fileExtension: ".csv",
+  statusPort: parseInt(process.env.STATUS_PORT || "8093", 10)
 };
 
 const pool = new Pool({
@@ -24,10 +34,19 @@ const pool = new Pool({
   port: cfg.dbPort,
   user: cfg.dbUser,
   password: cfg.dbPassword,
-  database: cfg.dbName
+  database: cfg.dbName,
+  statement_timeout: cfg.dbStatementTimeoutMs,
+  connectionTimeoutMillis: cfg.dbConnectionTimeoutMs
 });
 
 let isProcessing = false;
+const status = {
+  startedAt: new Date().toISOString(),
+  lastScanAt: null,
+  lastFile: null,
+  lastResult: null,
+  lastError: null
+};
 
 function parseBool(value, defaultValue) {
   if (value === undefined || value === null) return defaultValue;
@@ -64,6 +83,31 @@ async function connectWithRetry() {
       await delay(waitMs);
     }
   }
+}
+
+function startStatusServer() {
+  const server = http.createServer((req, res) => {
+    if (req.url === "/health") {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          status: "ok",
+          startedAt: status.startedAt,
+          lastScanAt: status.lastScanAt,
+          lastFile: status.lastFile,
+          lastResult: status.lastResult,
+          lastError: status.lastError
+        })
+      );
+      return;
+    }
+    res.writeHead(404);
+    res.end();
+  });
+
+  server.listen(cfg.statusPort, () => {
+    log("info", "status server listening", { port: cfg.statusPort });
+  });
 }
 
 async function ensureDirs() {
@@ -141,6 +185,7 @@ async function moveFile(sourcePath, targetDir, fileName) {
 }
 
 async function processFile(fileName) {
+  status.lastFile = fileName;
   const sourcePath = path.join(cfg.inboxPath, fileName);
   const processingPath = path.join(cfg.inboxPath, `${fileName}.processing`);
 
@@ -180,9 +225,13 @@ async function processFile(fileName) {
 
     await recordRun(fileName, "processed", totals);
     await moveFile(processingPath, cfg.processedPath, fileName);
+    status.lastResult = "processed";
+    status.lastError = null;
     log("info", "file processed", { fileName, ...totals });
   } catch (err) {
     totals.errorRows = totals.totalRows || totals.errorRows;
+    status.lastResult = "failed";
+    status.lastError = err.message;
     try {
       await recordRun(fileName, "failed", totals);
     } catch (recordErr) {
@@ -202,6 +251,7 @@ async function processFile(fileName) {
 async function processInbox() {
   if (isProcessing) return;
   isProcessing = true;
+  status.lastScanAt = new Date().toISOString();
 
   try {
     const files = await fs.promises.readdir(cfg.inboxPath);
@@ -222,6 +272,7 @@ async function processInbox() {
 async function start() {
   await ensureDirs();
   await connectWithRetry();
+  startStatusServer();
   log("info", "file-ingest ready", {
     inbox: cfg.inboxPath,
     processed: cfg.processedPath,

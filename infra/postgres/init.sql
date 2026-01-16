@@ -33,3 +33,18 @@ CREATE TABLE IF NOT EXISTS analytics.inventory_summary (
   total_quantity integer NOT NULL,
   total_value numeric(14,2) NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS inventory_reservations (
+  command_id text PRIMARY KEY,
+  order_id text NOT NULL,
+  status text NOT NULL,
+  reason text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS payment_transactions (
+  command_id text PRIMARY KEY,
+  order_id text NOT NULL,
+  status text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);

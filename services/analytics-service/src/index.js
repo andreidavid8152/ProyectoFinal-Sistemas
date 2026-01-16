@@ -1,3 +1,4 @@
+import http from "http";
 import { Pool } from "pg";
 import { setTimeout as delay } from "timers/promises";
 
@@ -7,7 +8,16 @@ const cfg = {
   dbUser: process.env.DB_USER || "integrahub",
   dbPassword: process.env.DB_PASSWORD || "change_me",
   dbName: process.env.DB_NAME || "integrahub",
-  etlIntervalMs: parseInt(process.env.ETL_INTERVAL_MS || "15000", 10)
+  dbStatementTimeoutMs: parseInt(
+    process.env.DB_STATEMENT_TIMEOUT_MS || "4000",
+    10
+  ),
+  dbConnectionTimeoutMs: parseInt(
+    process.env.DB_CONNECTION_TIMEOUT_MS || "5000",
+    10
+  ),
+  etlIntervalMs: parseInt(process.env.ETL_INTERVAL_MS || "15000", 10),
+  statusPort: parseInt(process.env.STATUS_PORT || "8094", 10)
 };
 
 const pool = new Pool({
@@ -15,10 +25,17 @@ const pool = new Pool({
   port: cfg.dbPort,
   user: cfg.dbUser,
   password: cfg.dbPassword,
-  database: cfg.dbName
+  database: cfg.dbName,
+  statement_timeout: cfg.dbStatementTimeoutMs,
+  connectionTimeoutMillis: cfg.dbConnectionTimeoutMs
 });
 
 let isRunning = false;
+const status = {
+  startedAt: new Date().toISOString(),
+  lastRunAt: null,
+  lastError: null
+};
 
 function log(level, message, extra) {
   const base = `[${new Date().toISOString()}] ${level.toUpperCase()} ${message}`;
@@ -49,9 +66,33 @@ async function connectWithRetry() {
   }
 }
 
+function startStatusServer() {
+  const server = http.createServer((req, res) => {
+    if (req.url === "/health") {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          status: "ok",
+          startedAt: status.startedAt,
+          lastRunAt: status.lastRunAt,
+          lastError: status.lastError
+        })
+      );
+      return;
+    }
+    res.writeHead(404);
+    res.end();
+  });
+
+  server.listen(cfg.statusPort, () => {
+    log("info", "status server listening", { port: cfg.statusPort });
+  });
+}
+
 async function runEtl() {
   if (isRunning) return;
   isRunning = true;
+  status.lastRunAt = new Date().toISOString();
 
   try {
     const result = await pool.query(
@@ -70,12 +111,14 @@ async function runEtl() {
       [totalSkus, totalQuantity, totalValue]
     );
 
+    status.lastError = null;
     log("info", "etl summary stored", {
       totalSkus,
       totalQuantity,
       totalValue
     });
   } catch (err) {
+    status.lastError = err.message;
     log("error", "etl run failed", { error: err.message });
   } finally {
     isRunning = false;
@@ -84,6 +127,7 @@ async function runEtl() {
 
 async function start() {
   await connectWithRetry();
+  startStatusServer();
   log("info", "analytics-service ready", {
     intervalMs: cfg.etlIntervalMs
   });

@@ -138,6 +138,13 @@
       }
     },
     {
+      "name": "q.notifications.audit",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
       "name": "q.notifications.retry",
       "vhost": "/",
       "durable": true,
@@ -313,6 +320,14 @@
       "source": "integrahub.events",
       "vhost": "/",
       "destination": "q.notifications",
+      "destination_type": "queue",
+      "routing_key": "order.#",
+      "arguments": {}
+    },
+    {
+      "source": "integrahub.events",
+      "vhost": "/",
+      "destination": "q.notifications.audit",
       "destination_type": "queue",
       "routing_key": "order.#",
       "arguments": {}

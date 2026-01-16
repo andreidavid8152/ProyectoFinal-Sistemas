@@ -1,5 +1,6 @@
 import amqp from "amqplib";
 import { randomUUID } from "crypto";
+import http from "http";
 import { setTimeout as delay } from "timers/promises";
 
 const cfg = {
@@ -10,14 +11,27 @@ const cfg = {
   vhost: process.env.RABBITMQ_VHOST || "/",
   rawQueue: process.env.RAW_QUEUE || "q.events.raw",
   rawExchange: process.env.RAW_EXCHANGE || "integrahub.events.raw",
+  rawBindingKey: process.env.RAW_BINDING_KEY || "events.raw",
+  rawRetryQueue: process.env.RAW_RETRY_QUEUE || "q.events.raw.retry",
+  rawDlqQueue: process.env.RAW_DLQ_QUEUE || "q.events.raw.dlq",
   eventsExchange: process.env.EVENTS_EXCHANGE || "integrahub.events",
   commandsExchange: process.env.COMMANDS_EXCHANGE || "integrahub.commands",
   dlxExchange: process.env.DLX_EXCHANGE || "integrahub.dlx",
   retryRoutingKey: process.env.RETRY_ROUTING_KEY || "retry.events.raw",
+  mainRoutingKey: process.env.MAIN_ROUTING_KEY || "main.events.raw",
   dlqRoutingKey: process.env.DLQ_ROUTING_KEY || "dlq.events.raw",
+  retryTtlMs: parseInt(process.env.RETRY_TTL_MS || "5000", 10),
   maxRetries: parseInt(process.env.MAX_RETRIES || "3", 10),
   prefetch: parseInt(process.env.PREFETCH || "1", 10),
-  idempotencyTtlMs: parseInt(process.env.IDEMPOTENCY_TTL_MS || "86400000", 10)
+  idempotencyTtlMs: parseInt(process.env.IDEMPOTENCY_TTL_MS || "86400000", 10),
+  statusPort: parseInt(process.env.STATUS_PORT || "8092", 10)
+};
+
+const status = {
+  startedAt: new Date().toISOString(),
+  rabbitmq: "starting",
+  lastProcessedAt: null,
+  lastError: null
 };
 
 function log(level, message, extra) {
@@ -57,6 +71,62 @@ class IdempotencyStore {
 
 const idempotency = new IdempotencyStore(cfg.idempotencyTtlMs);
 setInterval(() => idempotency.purge(), Math.min(60000, cfg.idempotencyTtlMs)).unref();
+
+function startStatusServer() {
+  const server = http.createServer((req, res) => {
+    if (req.url === "/health") {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          status: "ok",
+          rabbitmq: status.rabbitmq,
+          startedAt: status.startedAt,
+          lastProcessedAt: status.lastProcessedAt,
+          lastError: status.lastError
+        })
+      );
+      return;
+    }
+    res.writeHead(404);
+    res.end();
+  });
+
+  server.listen(cfg.statusPort, () => {
+    log("info", "status server listening", { port: cfg.statusPort });
+  });
+}
+
+async function ensureTopology(channel) {
+  await channel.assertExchange(cfg.rawExchange, "topic", { durable: true });
+  await channel.assertExchange(cfg.eventsExchange, "topic", { durable: true });
+  await channel.assertExchange(cfg.commandsExchange, "direct", { durable: true });
+  await channel.assertExchange(cfg.dlxExchange, "direct", { durable: true });
+
+  await channel.assertQueue(cfg.rawQueue, {
+    durable: true,
+    arguments: {
+      "x-dead-letter-exchange": cfg.dlxExchange,
+      "x-dead-letter-routing-key": cfg.retryRoutingKey
+    }
+  });
+  await channel.bindQueue(cfg.rawQueue, cfg.rawExchange, cfg.rawBindingKey);
+  await channel.bindQueue(cfg.rawQueue, cfg.dlxExchange, cfg.mainRoutingKey);
+
+  await channel.assertQueue(cfg.rawRetryQueue, {
+    durable: true,
+    arguments: {
+      "x-message-ttl": cfg.retryTtlMs,
+      "x-dead-letter-exchange": cfg.dlxExchange,
+      "x-dead-letter-routing-key": cfg.mainRoutingKey
+    }
+  });
+  await channel.bindQueue(cfg.rawRetryQueue, cfg.dlxExchange, cfg.retryRoutingKey);
+
+  await channel.assertQueue(cfg.rawDlqQueue, {
+    durable: true
+  });
+  await channel.bindQueue(cfg.rawDlqQueue, cfg.dlxExchange, cfg.dlqRoutingKey);
+}
 
 function buildAmqpUrl() {
   const vhostRaw = cfg.vhost || "/";
@@ -128,12 +198,35 @@ function buildInventoryCommand(canonical, payload) {
   };
 }
 
+function calculateAmount(payload) {
+  const direct =
+    payload.amount ??
+    payload.total ??
+    (payload.order && payload.order.total);
+  const directValue = parseFloat(direct);
+  if (Number.isFinite(directValue) && directValue > 0) {
+    return directValue;
+  }
+
+  const items = payload.items || (payload.order && payload.order.items) || [];
+  if (!Array.isArray(items) || items.length === 0) {
+    return 0;
+  }
+
+  let total = 0;
+  for (const item of items) {
+    const qty = parseFloat(item.qty ?? item.quantity ?? item.count ?? 0);
+    const price = parseFloat(item.price ?? item.unitprice ?? item.unit_price ?? 0);
+    if (Number.isFinite(qty) && Number.isFinite(price)) {
+      total += qty * price;
+    }
+  }
+
+  return Number.isFinite(total) ? total : 0;
+}
+
 function buildPaymentCommand(canonical, payload) {
-  const amount =
-    payload.amount ||
-    payload.total ||
-    (payload.order && payload.order.total) ||
-    0;
+  const amount = calculateAmount(payload);
   const currency =
     payload.currency ||
     (payload.order && payload.order.currency) ||
@@ -263,6 +356,7 @@ async function connectWithRetry() {
 }
 
 async function start() {
+  startStatusServer();
   log("info", "message-router starting", {
     rawQueue: cfg.rawQueue,
     rawExchange: cfg.rawExchange,
@@ -271,17 +365,20 @@ async function start() {
   });
 
   const connection = await connectWithRetry();
+  status.rabbitmq = "connected";
   connection.on("close", () => {
+    status.rabbitmq = "disconnected";
     log("error", "RabbitMQ connection closed");
     process.exit(1);
   });
   connection.on("error", (err) => {
+    status.lastError = err.message;
     log("error", "RabbitMQ connection error", { error: err.message });
   });
 
   const channel = await connection.createChannel();
   await channel.prefetch(cfg.prefetch);
-  await channel.checkQueue(cfg.rawQueue);
+  await ensureTopology(channel);
 
   await channel.consume(cfg.rawQueue, async (msg) => {
     if (!msg) return;
@@ -333,10 +430,13 @@ async function start() {
       await routeEvent(channel, canonical, payload);
       idempotency.add(canonical.eventId);
       channel.ack(msg);
+      status.lastProcessedAt = new Date().toISOString();
+      status.lastError = null;
       log("info", "processed", { type, eventId: canonical.eventId });
     } catch (err) {
       const attempts = getAttempts(msg);
       const headers = { "x-attempts": attempts + 1, "x-error": err.message };
+      status.lastError = err.message;
 
       if (attempts >= cfg.maxRetries) {
         republishRaw(channel, cfg.dlxExchange, cfg.dlqRoutingKey, msg, headers);

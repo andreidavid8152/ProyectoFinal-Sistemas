@@ -21,11 +21,20 @@ const cfg = {
   rabbitVhost: process.env.RABBITMQ_VHOST || "/",
   rawExchange: process.env.RAW_EXCHANGE || "integrahub.events.raw",
   rawRoutingKey: process.env.RAW_ROUTING_KEY || "events.raw",
+  eventsExchange: process.env.EVENTS_EXCHANGE || "integrahub.events",
+  statusQueue: process.env.ORDER_STATUS_QUEUE || "q.order.status",
+  statusRetryRoutingKey: process.env.ORDER_STATUS_RETRY_KEY || "retry.order.status",
+  statusMainRoutingKey: process.env.ORDER_STATUS_MAIN_KEY || "main.order.status",
+  statusDlqRoutingKey: process.env.ORDER_STATUS_DLQ_KEY || "dlq.order.status",
+  statusBindings: (process.env.ORDER_STATUS_BINDINGS || "order.confirmed,order.rejected")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean),
   openApiPath: process.env.OPENAPI_PATH || "/app/contracts/api/order-api.yaml"
 };
 
 const orders = new Map();
-const rabbit = { connection: null, channel: null, ready: false };
+const rabbit = { connection: null, channel: null, statusChannel: null, ready: false };
 
 function log(level, message, extra) {
   const base = `[${new Date().toISOString()}] ${level.toUpperCase()} ${message}`;
@@ -54,6 +63,7 @@ async function connectRabbit() {
       rabbit.connection = connection;
       rabbit.channel = channel;
       rabbit.ready = true;
+      await startStatusConsumer(connection);
       connection.on("close", () => {
         rabbit.ready = false;
         log("error", "RabbitMQ connection closed");
@@ -87,6 +97,71 @@ function publishRawEvent(event, correlationId) {
     deliveryMode: 2,
     messageId: event.eventId,
     correlationId
+  });
+}
+
+function normalizeStatus(type) {
+  if (!type) return null;
+  const normalized = String(type).trim().toLowerCase().replace(/[\s_-]+/g, ".");
+  if (normalized === "order.confirmed") return "CONFIRMED";
+  if (normalized === "order.rejected") return "REJECTED";
+  return null;
+}
+
+async function ensureStatusTopology(channel) {
+  await channel.assertExchange(cfg.eventsExchange, "topic", { durable: true });
+  await channel.assertExchange("integrahub.dlx", "direct", { durable: true });
+  await channel.assertQueue(cfg.statusQueue, {
+    durable: true,
+    arguments: {
+      "x-dead-letter-exchange": "integrahub.dlx",
+      "x-dead-letter-routing-key": cfg.statusRetryRoutingKey
+    }
+  });
+  for (const key of cfg.statusBindings) {
+    await channel.bindQueue(cfg.statusQueue, cfg.eventsExchange, key);
+  }
+  await channel.bindQueue(cfg.statusQueue, "integrahub.dlx", cfg.statusMainRoutingKey);
+}
+
+async function startStatusConsumer(connection) {
+  const channel = await connection.createChannel();
+  rabbit.statusChannel = channel;
+  await ensureStatusTopology(channel);
+
+  await channel.consume(cfg.statusQueue, (msg) => {
+    if (!msg) return;
+    try {
+      const payload = JSON.parse(msg.content.toString("utf8"));
+      const orderId = payload.orderId || payload.id || null;
+      if (!orderId) {
+        channel.ack(msg);
+        return;
+      }
+
+      const order = orders.get(orderId) || {
+        id: orderId,
+        status: "UNKNOWN",
+        items: [],
+        total: 0,
+        currency: "USD",
+        createdAt: payload.occurredAt || new Date().toISOString()
+      };
+
+      const statusValue = normalizeStatus(payload.type);
+      if (statusValue) {
+        order.status = statusValue;
+      }
+      order.lastEventType = payload.type || "";
+      order.lastEventId = payload.eventId || "";
+      order.updatedAt = new Date().toISOString();
+      orders.set(orderId, order);
+
+      channel.ack(msg);
+    } catch (err) {
+      channel.ack(msg);
+      log("error", "status event parse failed", { error: err.message });
+    }
   });
 }
 

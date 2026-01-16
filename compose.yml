@@ -31,4 +31,206 @@ services:
       RAW_QUEUE: q.events.raw
       MAX_RETRIES: 3
       IDEMPOTENCY_TTL_MS: 86400000
+      STATUS_PORT: 8092
+  order-api:
+    build:
+      context: ./services/order-api
+    container_name: integrahub-order-api
+    depends_on:
+      - rabbitmq
+    ports:
+      - "${ORDER_API_PORT:-8080}:8080"
+    environment:
+      PORT: 8080
+      JWT_SIGNING_KEY: ${JWT_SIGNING_KEY:-change_me}
+      JWT_ISSUER: ${JWT_ISSUER:-integrahub}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-integrahub-api}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_DEFAULT_USER:-integrahub}
+      RABBITMQ_PASS: ${RABBITMQ_DEFAULT_PASS:-change_me}
+      RABBITMQ_VHOST: /
+      RAW_EXCHANGE: integrahub.events.raw
+      RAW_ROUTING_KEY: events.raw
+      EVENTS_EXCHANGE: integrahub.events
+      ORDER_STATUS_QUEUE: q.order.status
+      OPENAPI_PATH: /app/contracts/api/order-api.yaml
+    volumes:
+      - ./contracts:/app/contracts:ro
+  auth-service:
+    build:
+      context: ./services/auth-service
+    container_name: integrahub-auth-service
+    ports:
+      - "${AUTH_SERVICE_PORT:-8082}:8082"
+    environment:
+      PORT: 8082
+      JWT_SIGNING_KEY: ${JWT_SIGNING_KEY:-change_me}
+      JWT_ISSUER: ${JWT_ISSUER:-integrahub}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-integrahub-api}
+      AUTH_USER: ${AUTH_USER:-demo}
+      AUTH_PASSWORD: ${AUTH_PASSWORD:-demo}
+      AUTH_TOKEN_TTL_SECONDS: ${AUTH_TOKEN_TTL_SECONDS:-3600}
+  postgres:
+    image: postgres:16-alpine
+    container_name: integrahub-postgres
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-integrahub}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+      POSTGRES_DB: ${POSTGRES_DB:-integrahub}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+  file-ingest:
+    build:
+      context: ./services/file-ingest
+    container_name: integrahub-file-ingest
+    depends_on:
+      - postgres
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER:-integrahub}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+      DB_NAME: ${POSTGRES_DB:-integrahub}
+      DB_STATEMENT_TIMEOUT_MS: ${DB_STATEMENT_TIMEOUT_MS:-4000}
+      DB_CONNECTION_TIMEOUT_MS: ${DB_CONNECTION_TIMEOUT_MS:-5000}
+      INBOX_PATH: /data/inbox
+      PROCESSED_PATH: /data/processed
+      ERROR_PATH: /data/errors
+      POLL_INTERVAL_MS: ${FILE_INGEST_POLL_MS:-5000}
+      CSV_DELIMITER: ${CSV_DELIMITER:-,}
+      CSV_HAS_HEADER: ${CSV_HAS_HEADER:-true}
+      STATUS_PORT: 8093
+    volumes:
+      - ./data:/data
+  inventory-service:
+    build:
+      context: ./services/inventory-service
+    container_name: integrahub-inventory
+    depends_on:
+      - rabbitmq
+      - postgres
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_DEFAULT_USER:-integrahub}
+      RABBITMQ_PASS: ${RABBITMQ_DEFAULT_PASS:-change_me}
+      RABBITMQ_VHOST: /
+      RAW_EXCHANGE: integrahub.events.raw
+      COMMANDS_EXCHANGE: integrahub.commands
+      DLX_EXCHANGE: integrahub.dlx
+      INVENTORY_QUEUE: q.inventory.reserve
+      INVENTORY_ROUTING_KEY: inventory.reserve
+      STATUS_PORT: 8095
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER:-integrahub}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+      DB_NAME: ${POSTGRES_DB:-integrahub}
+      DB_STATEMENT_TIMEOUT_MS: ${DB_STATEMENT_TIMEOUT_MS:-4000}
+      DB_CONNECTION_TIMEOUT_MS: ${DB_CONNECTION_TIMEOUT_MS:-5000}
+  payment-service:
+    build:
+      context: ./services/payment-service
+    container_name: integrahub-payment
+    depends_on:
+      - rabbitmq
+      - postgres
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_DEFAULT_USER:-integrahub}
+      RABBITMQ_PASS: ${RABBITMQ_DEFAULT_PASS:-change_me}
+      RABBITMQ_VHOST: /
+      RAW_EXCHANGE: integrahub.events.raw
+      COMMANDS_EXCHANGE: integrahub.commands
+      DLX_EXCHANGE: integrahub.dlx
+      PAYMENT_QUEUE: q.payment.process
+      PAYMENT_ROUTING_KEY: payment.process
+      PAYMENT_FAIL_RATE: ${PAYMENT_FAIL_RATE:-0}
+      PAYMENT_FORCE_FAIL: ${PAYMENT_FORCE_FAIL:-false}
+      PAYMENT_SIMULATE_ERROR: ${PAYMENT_SIMULATE_ERROR:-false}
+      STATUS_PORT: 8096
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER:-integrahub}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+      DB_NAME: ${POSTGRES_DB:-integrahub}
+      DB_STATEMENT_TIMEOUT_MS: ${DB_STATEMENT_TIMEOUT_MS:-4000}
+      DB_CONNECTION_TIMEOUT_MS: ${DB_CONNECTION_TIMEOUT_MS:-5000}
+  notification-service:
+    build:
+      context: ./services/notification-service
+    container_name: integrahub-notification
+    depends_on:
+      - rabbitmq
+    ports:
+      - "8097:8097"
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_DEFAULT_USER:-integrahub}
+      RABBITMQ_PASS: ${RABBITMQ_DEFAULT_PASS:-change_me}
+      RABBITMQ_VHOST: /
+      EVENTS_EXCHANGE: integrahub.events
+      DLX_EXCHANGE: integrahub.dlx
+      NOTIFICATION_QUEUE: q.notifications
+      NOTIFICATION_ROUTING_KEY: order.#
+      STATUS_PORT: 8097
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
+      DISCORD_WEBHOOK_USERNAME: ${DISCORD_WEBHOOK_USERNAME:-}
+      DISCORD_WEBHOOK_AVATAR_URL: ${DISCORD_WEBHOOK_AVATAR_URL:-}
+      DISCORD_WEBHOOK_TIMEOUT_MS: ${DISCORD_WEBHOOK_TIMEOUT_MS:-4000}
+      DISCORD_CB_FAILURE_THRESHOLD: ${DISCORD_CB_FAILURE_THRESHOLD:-3}
+      DISCORD_CB_RESET_TIMEOUT_MS: ${DISCORD_CB_RESET_TIMEOUT_MS:-20000}
+  analytics-service:
+    build:
+      context: ./services/analytics-service
+    container_name: integrahub-analytics
+    depends_on:
+      - postgres
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER:-integrahub}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+      DB_NAME: ${POSTGRES_DB:-integrahub}
+      DB_STATEMENT_TIMEOUT_MS: ${DB_STATEMENT_TIMEOUT_MS:-4000}
+      DB_CONNECTION_TIMEOUT_MS: ${DB_CONNECTION_TIMEOUT_MS:-5000}
+      ETL_INTERVAL_MS: ${ETL_INTERVAL_MS:-15000}
+      STATUS_PORT: 8094
+  demo-portal:
+    build:
+      context: ./services/demo-portal
+    container_name: integrahub-demo-portal
+    depends_on:
+      - order-api
+      - auth-service
+      - message-router
+      - file-ingest
+      - analytics-service
+      - inventory-service
+      - payment-service
+      - notification-service
+    ports:
+      - "${DEMO_PORTAL_PORT:-8081}:8081"
+    environment:
+      PORT: 8081
+      ORDER_API_URL: http://order-api:8080
+      AUTH_API_URL: http://auth-service:8082
+      MESSAGE_ROUTER_URL: http://message-router:8092
+      FILE_INGEST_URL: http://file-ingest:8093
+      ANALYTICS_URL: http://analytics-service:8094
+      INVENTORY_URL: http://inventory-service:8095
+      PAYMENT_URL: http://payment-service:8096
+      NOTIFICATION_URL: http://notification-service:8097
+      RABBITMQ_UI_PUBLIC_URL: http://localhost:${RABBITMQ_UI_PORT:-15672}
+      SWAGGER_PUBLIC_URL: http://localhost:${ORDER_API_PORT:-8080}/docs
+      AUTH_PUBLIC_URL: http://localhost:${AUTH_SERVICE_PORT:-8082}/token
+
+volumes:
+  postgres_data:
 

@@ -2,11 +2,147 @@ openapi: 3.0.3
 info:
   title: Order API
   version: 0.1.0
-paths: {}
+servers:
+  - url: http://localhost:8080
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  rabbitmq:
+                    type: string
+  /orders:
+    post:
+      summary: Create order
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOrderRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateOrderResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: RabbitMQ unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /orders/{id}:
+    get:
+      summary: Get order by id
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+  schemas:
+    CreateOrderRequest:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              sku:
+                type: string
+              qty:
+                type: number
+              price:
+                type: number
+        total:
+          type: number
+        currency:
+          type: string
+      required:
+        - items
+    Order:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              sku:
+                type: string
+              qty:
+                type: number
+              price:
+                type: number
+        total:
+          type: number
+        currency:
+          type: string
+        createdAt:
+          type: string
+    CreateOrderResponse:
+      type: object
+      properties:
+        order:
+          $ref: "#/components/schemas/Order"
+        correlationId:
+          type: string
+        eventId:
+          type: string
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
 
