@@ -8,7 +8,7 @@ const cfg = {
   rabbitHost: process.env.RABBITMQ_HOST || "localhost",
   rabbitPort: process.env.RABBITMQ_PORT || "5672",
   rabbitUser: process.env.RABBITMQ_USER || "integrahub",
-  rabbitPass: process.env.RABBITMQ_PASS || "change_me",
+  rabbitPass: process.env.RABBITMQ_PASS || "admin",
   rabbitVhost: process.env.RABBITMQ_VHOST || "/",
   commandQueue: process.env.PAYMENT_QUEUE || "q.payment.process",
   commandRoutingKey: process.env.PAYMENT_ROUTING_KEY || "payment.process",
@@ -28,7 +28,7 @@ const cfg = {
   dbHost: process.env.DB_HOST || "localhost",
   dbPort: parseInt(process.env.DB_PORT || "5432", 10),
   dbUser: process.env.DB_USER || "integrahub",
-  dbPassword: process.env.DB_PASSWORD || "change_me",
+  dbPassword: process.env.DB_PASSWORD || "admin",
   dbName: process.env.DB_NAME || "integrahub",
   dbStatementTimeoutMs: parseInt(
     process.env.DB_STATEMENT_TIMEOUT_MS || "4000",

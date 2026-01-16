@@ -3,11 +3,11 @@ import jwt from "jsonwebtoken";
 
 const cfg = {
   port: parseInt(process.env.AUTH_SERVICE_PORT || process.env.PORT || "8082", 10),
-  jwtSigningKey: process.env.JWT_SIGNING_KEY || "change_me",
+  jwtSigningKey: process.env.JWT_SIGNING_KEY || "admin",
   jwtIssuer: process.env.JWT_ISSUER || "integrahub",
   jwtAudience: process.env.JWT_AUDIENCE || "integrahub-api",
   user: process.env.AUTH_USER || "demo",
-  password: process.env.AUTH_PASSWORD || "demo",
+  password: process.env.AUTH_PASSWORD || "admin",
   ttlSeconds: parseInt(process.env.AUTH_TOKEN_TTL_SECONDS || "3600", 10)
 };
 

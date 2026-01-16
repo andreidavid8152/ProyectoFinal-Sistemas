@@ -6,7 +6,7 @@ const cfg = {
   dbHost: process.env.DB_HOST || "localhost",
   dbPort: parseInt(process.env.DB_PORT || "5432", 10),
   dbUser: process.env.DB_USER || "integrahub",
-  dbPassword: process.env.DB_PASSWORD || "change_me",
+  dbPassword: process.env.DB_PASSWORD || "admin",
   dbName: process.env.DB_NAME || "integrahub",
   dbStatementTimeoutMs: parseInt(
     process.env.DB_STATEMENT_TIMEOUT_MS || "4000",

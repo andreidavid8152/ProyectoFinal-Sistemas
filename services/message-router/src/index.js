@@ -7,7 +7,7 @@ const cfg = {
   host: process.env.RABBITMQ_HOST || "localhost",
   port: process.env.RABBITMQ_PORT || "5672",
   user: process.env.RABBITMQ_USER || "integrahub",
-  pass: process.env.RABBITMQ_PASS || "change_me",
+  pass: process.env.RABBITMQ_PASS || "admin",
   vhost: process.env.RABBITMQ_VHOST || "/",
   rawQueue: process.env.RAW_QUEUE || "q.events.raw",
   rawExchange: process.env.RAW_EXCHANGE || "integrahub.events.raw",

@@ -8,7 +8,7 @@ services:
       - "${RABBITMQ_UI_PORT:-15672}:15672"
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-integrahub}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-change_me}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-admin}
       RABBITMQ_LOAD_DEFINITIONS: /etc/rabbitmq/definitions.json
     volumes:
       - ./infra/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
@@ -22,7 +22,7 @@ services:
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: ${RABBITMQ_DEFAULT_USER:-integrahub}
-      RABBITMQ_PASS: ${RABBITMQ_DEFAULT_PASS:-change_me}
+      RABBITMQ_PASS: ${RABBITMQ_DEFAULT_PASS:-admin}
       RABBITMQ_VHOST: /
       RAW_EXCHANGE: integrahub.events.raw
       EVENTS_EXCHANGE: integrahub.events
@@ -42,13 +42,13 @@ services:
       - "${ORDER_API_PORT:-8080}:8080"
     environment:
       PORT: 8080
-      JWT_SIGNING_KEY: ${JWT_SIGNING_KEY:-change_me}
+      JWT_SIGNING_KEY: ${JWT_SIGNING_KEY:-admin}
       JWT_ISSUER: ${JWT_ISSUER:-integrahub}
       JWT_AUDIENCE: ${JWT_AUDIENCE:-integrahub-api}
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: ${RABBITMQ_DEFAULT_USER:-integrahub}
-      RABBITMQ_PASS: ${RABBITMQ_DEFAULT_PASS:-change_me}
+      RABBITMQ_PASS: ${RABBITMQ_DEFAULT_PASS:-admin}
       RABBITMQ_VHOST: /
       RAW_EXCHANGE: integrahub.events.raw
       RAW_ROUTING_KEY: events.raw
@@ -65,11 +65,11 @@ services:
       - "${AUTH_SERVICE_PORT:-8082}:8082"
     environment:
       PORT: 8082
-      JWT_SIGNING_KEY: ${JWT_SIGNING_KEY:-change_me}
+      JWT_SIGNING_KEY: ${JWT_SIGNING_KEY:-admin}
       JWT_ISSUER: ${JWT_ISSUER:-integrahub}
       JWT_AUDIENCE: ${JWT_AUDIENCE:-integrahub-api}
       AUTH_USER: ${AUTH_USER:-demo}
-      AUTH_PASSWORD: ${AUTH_PASSWORD:-demo}
+      AUTH_PASSWORD: ${AUTH_PASSWORD:-admin}
       AUTH_TOKEN_TTL_SECONDS: ${AUTH_TOKEN_TTL_SECONDS:-3600}
   postgres:
     image: postgres:16-alpine
@@ -78,7 +78,7 @@ services:
       - "${POSTGRES_PORT:-5432}:5432"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-integrahub}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin}
       POSTGRES_DB: ${POSTGRES_DB:-integrahub}
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -93,7 +93,7 @@ services:
       DB_HOST: postgres
       DB_PORT: 5432
       DB_USER: ${POSTGRES_USER:-integrahub}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-admin}
       DB_NAME: ${POSTGRES_DB:-integrahub}
       DB_STATEMENT_TIMEOUT_MS: ${DB_STATEMENT_TIMEOUT_MS:-4000}
       DB_CONNECTION_TIMEOUT_MS: ${DB_CONNECTION_TIMEOUT_MS:-5000}
@@ -117,7 +117,7 @@ services:
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: ${RABBITMQ_DEFAULT_USER:-integrahub}
-      RABBITMQ_PASS: ${RABBITMQ_DEFAULT_PASS:-change_me}
+      RABBITMQ_PASS: ${RABBITMQ_DEFAULT_PASS:-admin}
       RABBITMQ_VHOST: /
       RAW_EXCHANGE: integrahub.events.raw
       COMMANDS_EXCHANGE: integrahub.commands
@@ -128,7 +128,7 @@ services:
       DB_HOST: postgres
       DB_PORT: 5432
       DB_USER: ${POSTGRES_USER:-integrahub}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-admin}
       DB_NAME: ${POSTGRES_DB:-integrahub}
       DB_STATEMENT_TIMEOUT_MS: ${DB_STATEMENT_TIMEOUT_MS:-4000}
       DB_CONNECTION_TIMEOUT_MS: ${DB_CONNECTION_TIMEOUT_MS:-5000}
@@ -143,7 +143,7 @@ services:
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: ${RABBITMQ_DEFAULT_USER:-integrahub}
-      RABBITMQ_PASS: ${RABBITMQ_DEFAULT_PASS:-change_me}
+      RABBITMQ_PASS: ${RABBITMQ_DEFAULT_PASS:-admin}
       RABBITMQ_VHOST: /
       RAW_EXCHANGE: integrahub.events.raw
       COMMANDS_EXCHANGE: integrahub.commands
@@ -157,7 +157,7 @@ services:
       DB_HOST: postgres
       DB_PORT: 5432
       DB_USER: ${POSTGRES_USER:-integrahub}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-admin}
       DB_NAME: ${POSTGRES_DB:-integrahub}
       DB_STATEMENT_TIMEOUT_MS: ${DB_STATEMENT_TIMEOUT_MS:-4000}
       DB_CONNECTION_TIMEOUT_MS: ${DB_CONNECTION_TIMEOUT_MS:-5000}
@@ -173,7 +173,7 @@ services:
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: ${RABBITMQ_DEFAULT_USER:-integrahub}
-      RABBITMQ_PASS: ${RABBITMQ_DEFAULT_PASS:-change_me}
+      RABBITMQ_PASS: ${RABBITMQ_DEFAULT_PASS:-admin}
       RABBITMQ_VHOST: /
       EVENTS_EXCHANGE: integrahub.events
       DLX_EXCHANGE: integrahub.dlx
@@ -196,7 +196,7 @@ services:
       DB_HOST: postgres
       DB_PORT: 5432
       DB_USER: ${POSTGRES_USER:-integrahub}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-admin}
       DB_NAME: ${POSTGRES_DB:-integrahub}
       DB_STATEMENT_TIMEOUT_MS: ${DB_STATEMENT_TIMEOUT_MS:-4000}
       DB_CONNECTION_TIMEOUT_MS: ${DB_CONNECTION_TIMEOUT_MS:-5000}

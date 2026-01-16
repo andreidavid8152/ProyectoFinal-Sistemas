@@ -6,7 +6,7 @@ const cfg = {
   rabbitHost: process.env.RABBITMQ_HOST || "localhost",
   rabbitPort: process.env.RABBITMQ_PORT || "5672",
   rabbitUser: process.env.RABBITMQ_USER || "integrahub",
-  rabbitPass: process.env.RABBITMQ_PASS || "change_me",
+  rabbitPass: process.env.RABBITMQ_PASS || "admin",
   rabbitVhost: process.env.RABBITMQ_VHOST || "/",
   eventQueue: process.env.NOTIFICATION_QUEUE || "q.notifications",
   eventRoutingKey: process.env.NOTIFICATION_ROUTING_KEY || "order.#",
