@@ -44,6 +44,7 @@ const status = {
   lastEventType: null,
   lastCorrelationId: null,
   lastOrderId: null,
+  lastEventId: null,
   totalNotifications: 0,
   lastError: null
 };
@@ -72,11 +73,58 @@ function buildAmqpUrl() {
   return `amqp://${user}:${pass}@${cfg.rabbitHost}:${cfg.rabbitPort}/${vhost}`;
 }
 
-function formatDiscordMessage({ type, orderId, correlationId }) {
-  const safeType = type || "order.unknown";
-  const safeOrderId = orderId || "n/a";
-  const safeCorrelationId = correlationId || "n/a";
-  return `Order event: ${safeType}\nOrder ID: ${safeOrderId}\nCorrelation: ${safeCorrelationId}`;
+function normalizeType(rawType) {
+  if (!rawType) return "order.unknown";
+  return String(rawType).trim().toLowerCase().replace(/[\s_-]+/g, ".");
+}
+
+function buildDiscordPayload(event) {
+  const type = normalizeType(event.type);
+  const catalog = {
+    "order.created": { title: "Pedido creado", color: 0x3498db },
+    "order.confirmed": { title: "Pedido confirmado", color: 0x57f287 },
+    "order.rejected": { title: "Pedido rechazado", color: 0xed4245 },
+    "inventory.reserved": { title: "Inventario reservado", color: 0xf1c40f },
+    "inventory.rejected": { title: "Inventario rechazado", color: 0xed4245 },
+    "payment.approved": { title: "Pago aprobado", color: 0x57f287 },
+    "payment.failed": { title: "Pago rechazado", color: 0xed4245 }
+  };
+
+  const meta = catalog[type] || { title: "Evento de pedido", color: 0x95a5a6 };
+  const fields = [
+    { name: "Tipo", value: `\`${type}\``, inline: false },
+    { name: "Order ID", value: event.orderId ? `\`${event.orderId}\`` : "n/a", inline: false },
+    {
+      name: "Correlation",
+      value: event.correlationId ? `\`${event.correlationId}\`` : "n/a",
+      inline: false
+    }
+  ];
+
+  if (event.eventId) {
+    fields.push({
+      name: "Event ID",
+      value: `\`${event.eventId}\``,
+      inline: false
+    });
+  }
+
+  const timestamp = event.occurredAt
+    ? new Date(event.occurredAt).toISOString()
+    : new Date().toISOString();
+
+  const payload = {
+    embeds: [
+      {
+        title: meta.title,
+        color: meta.color,
+        fields,
+        timestamp
+      }
+    ]
+  };
+
+  return payload;
 }
 
 function openDiscordCircuit(reason) {
@@ -157,7 +205,7 @@ async function sendDiscordNotification(event) {
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), cfg.discordWebhookTimeoutMs);
-  const payload = { content: formatDiscordMessage(event) };
+  const payload = buildDiscordPayload(event);
 
   if (cfg.discordWebhookUsername) {
     payload.username = cfg.discordWebhookUsername;
@@ -329,14 +377,23 @@ async function start() {
       const type = payload.type || payload.eventType || "";
       const correlationId = payload.correlationId || msg.properties.correlationId || "";
       const orderId = payload.orderId || payload.id || "";
+      const eventId = payload.eventId || msg.properties.messageId || "";
+      const occurredAt = payload.occurredAt || payload.timestamp || null;
 
       log("info", "notify operations", { type, orderId, correlationId });
       log("info", "notify customer", { type, orderId, correlationId });
-      await sendDiscordNotification({ type, orderId, correlationId });
+      await sendDiscordNotification({
+        type,
+        orderId,
+        correlationId,
+        eventId,
+        occurredAt
+      });
 
       status.lastEventType = type;
       status.lastCorrelationId = correlationId;
       status.lastOrderId = orderId;
+      status.lastEventId = eventId;
       status.totalNotifications += 1;
       status.lastError = null;
 
