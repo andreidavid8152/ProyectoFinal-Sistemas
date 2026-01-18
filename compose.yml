@@ -150,7 +150,6 @@ services:
       DLX_EXCHANGE: integrahub.dlx
       PAYMENT_QUEUE: q.payment.process
       PAYMENT_ROUTING_KEY: payment.process
-      PAYMENT_FAIL_RATE: ${PAYMENT_FAIL_RATE:-0}
       PAYMENT_FORCE_FAIL: ${PAYMENT_FORCE_FAIL:-false}
       PAYMENT_SIMULATE_ERROR: ${PAYMENT_SIMULATE_ERROR:-false}
       STATUS_PORT: 8096

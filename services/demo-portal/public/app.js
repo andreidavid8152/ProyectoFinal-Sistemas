@@ -17,6 +17,10 @@ const statusList = el("status-list");
 const statusUpdated = el("status-updated");
 const metricOrders = el("metric-orders");
 const metricSystem = el("metric-system");
+const paymentForceFail = el("payment-force-fail");
+const paymentSimulateError = el("payment-simulate-error");
+const paymentControlStatus = el("payment-control-status");
+const paymentControlApply = el("payment-control-apply");
 
 function loadState() {
   try {
@@ -175,8 +179,11 @@ function renderOrders() {
       <div class="order-meta">
         <span><strong>Order ID:</strong> ${order.id}</span>
         <span><strong>Correlation:</strong> ${order.correlationId || "--"}</span>
-        <span><strong>Ultimo evento:</strong> ${order.eventId || "--"}</span>
+        <span><strong>Ultimo evento:</strong> ${order.lastEventType || "--"}</span>
+        <span><strong>Event ID (ultimo):</strong> ${order.lastEventId || "--"}</span>
+        <span><strong>Event ID (creacion):</strong> ${order.eventId || "--"}</span>
         <span><strong>Creado:</strong> ${order.createdAt || "--"}</span>
+        <span><strong>Actualizado:</strong> ${order.updatedAt || "--"}</span>
       </div>
     `;
     ordersList.appendChild(card);
@@ -194,7 +201,13 @@ async function refreshOrderStatuses() {
         headers: { Authorization: `Bearer ${state.token}` }
       });
       if (result.ok && result.data) {
-        return { ...order, status: result.data.status || order.status };
+        return {
+          ...order,
+          status: result.data.status || order.status,
+          lastEventType: result.data.lastEventType || order.lastEventType,
+          lastEventId: result.data.lastEventId || order.lastEventId,
+          updatedAt: result.data.updatedAt || order.updatedAt
+        };
       }
       return order;
     })
@@ -240,11 +253,14 @@ async function createOrder(event) {
   }
 
   const order = result.data.order || {};
+  const eventId = result.data.eventId || "--";
   state.orders.unshift({
     id: order.id || "--",
     status: order.status || "CREATED",
     correlationId: result.data.correlationId || correlationId,
-    eventId: result.data.eventId || "--",
+    eventId,
+    lastEventType: "OrderCreated",
+    lastEventId: eventId,
     createdAt: order.createdAt || new Date().toISOString()
   });
   saveOrders();
@@ -345,6 +361,46 @@ function setupAutoStatus() {
   if (toggle.checked) start();
 }
 
+function setPaymentControlHint(message, isError) {
+  setHint(paymentControlStatus, message, isError);
+}
+
+function applyPaymentControlState(data) {
+  if (!data) return;
+  if (paymentForceFail) paymentForceFail.checked = Boolean(data.forceFail);
+  if (paymentSimulateError) paymentSimulateError.checked = Boolean(data.simulateError);
+}
+
+async function loadPaymentControl() {
+  if (!paymentForceFail || !paymentSimulateError) return;
+  const result = await fetchJson("/api/payment-control");
+  if (!result.ok) {
+    setPaymentControlHint("Control de pagos no disponible.", true);
+    return;
+  }
+  applyPaymentControlState(result.data || {});
+  setPaymentControlHint("Estado cargado.");
+}
+
+async function updatePaymentControl() {
+  if (!paymentForceFail || !paymentSimulateError) return;
+  const payload = {
+    forceFail: paymentForceFail.checked,
+    simulateError: paymentSimulateError.checked
+  };
+  const result = await fetchJson("/api/payment-control", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  if (!result.ok) {
+    setPaymentControlHint("No se pudo actualizar el control de pagos.", true);
+    return;
+  }
+  applyPaymentControlState(result.data || payload);
+  setPaymentControlHint("Control de pagos actualizado.");
+}
+
 async function bootstrap() {
   loadState();
   addItemRow({ sku: "SKU-100", qty: 2, price: 9.99 });
@@ -359,6 +415,7 @@ async function bootstrap() {
   }
 
   await refreshStatus();
+  await loadPaymentControl();
   setupAutoStatus();
 
   el("token-form").addEventListener("submit", getToken);
@@ -373,6 +430,9 @@ async function bootstrap() {
     renderOrders();
   });
   el("refresh-status").addEventListener("click", refreshStatus);
+  if (paymentControlApply) {
+    paymentControlApply.addEventListener("click", updatePaymentControl);
+  }
 
   el("build-time").textContent = `Build: ${new Date().toISOString()}`;
 }

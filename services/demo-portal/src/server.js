@@ -145,6 +145,46 @@ app.get("/api/catalog", async (req, res) => {
   }
 });
 
+app.get("/api/payment-control", async (req, res) => {
+  if (!cfg.paymentUrl) {
+    res.status(503).json({ error: "payment_unavailable" });
+    return;
+  }
+  try {
+    const response = await fetchWithTimeout(
+      `${cfg.paymentUrl}/control`,
+      { headers: { accept: "application/json" } },
+      cfg.statusTimeoutMs
+    );
+    const data = await readJsonSafe(response);
+    res.status(response.status).json(data || {});
+  } catch (err) {
+    res.status(502).json({ error: "payment_unavailable" });
+  }
+});
+
+app.post("/api/payment-control", async (req, res) => {
+  if (!cfg.paymentUrl) {
+    res.status(503).json({ error: "payment_unavailable" });
+    return;
+  }
+  try {
+    const response = await fetchWithTimeout(
+      `${cfg.paymentUrl}/control`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(req.body || {})
+      },
+      cfg.statusTimeoutMs
+    );
+    const data = await readJsonSafe(response);
+    res.status(response.status).json(data || {});
+  } catch (err) {
+    res.status(502).json({ error: "payment_unavailable" });
+  }
+});
+
 app.post("/api/token", async (req, res) => {
   try {
     const response = await fetchWithTimeout(

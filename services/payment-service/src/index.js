@@ -22,7 +22,6 @@ const cfg = {
   maxRetries: parseInt(process.env.MAX_RETRIES || "3", 10),
   prefetch: parseInt(process.env.PREFETCH || "1", 10),
   statusPort: parseInt(process.env.STATUS_PORT || "8096", 10),
-  failRate: parseFloat(process.env.PAYMENT_FAIL_RATE || "0"),
   forceFail: parseBool(process.env.PAYMENT_FORCE_FAIL, false),
   simulateError: parseBool(process.env.PAYMENT_SIMULATE_ERROR, false),
   dbHost: process.env.DB_HOST || "localhost",
@@ -58,6 +57,11 @@ const status = {
   lastError: null
 };
 
+const runtime = {
+  forceFail: cfg.forceFail,
+  simulateError: cfg.simulateError
+};
+
 function parseBool(value, defaultValue) {
   if (value === undefined || value === null) return defaultValue;
   const normalized = String(value).trim().toLowerCase();
@@ -83,20 +87,82 @@ function buildAmqpUrl() {
   return `amqp://${user}:${pass}@${cfg.rabbitHost}:${cfg.rabbitPort}/${vhost}`;
 }
 
+function sendJson(res, statusCode, body) {
+  res.writeHead(statusCode, { "content-type": "application/json" });
+  res.end(JSON.stringify(body));
+}
+
+function readJsonBody(req) {
+  return new Promise((resolve, reject) => {
+    let raw = "";
+    req.on("data", (chunk) => {
+      raw += chunk;
+    });
+    req.on("end", () => {
+      if (!raw) {
+        resolve({});
+        return;
+      }
+      try {
+        resolve(JSON.parse(raw));
+      } catch (err) {
+        reject(err);
+      }
+    });
+    req.on("error", reject);
+  });
+}
+
+async function handleControl(req, res) {
+  if (req.method === "GET") {
+    sendJson(res, 200, {
+      forceFail: runtime.forceFail,
+      simulateError: runtime.simulateError
+    });
+    return;
+  }
+
+  if (req.method !== "POST" && req.method !== "PUT") {
+    res.writeHead(405);
+    res.end();
+    return;
+  }
+
+  try {
+    const body = await readJsonBody(req);
+    if (Object.prototype.hasOwnProperty.call(body, "forceFail")) {
+      runtime.forceFail = parseBool(body.forceFail, runtime.forceFail);
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "simulateError")) {
+      runtime.simulateError = parseBool(body.simulateError, runtime.simulateError);
+    }
+    sendJson(res, 200, {
+      forceFail: runtime.forceFail,
+      simulateError: runtime.simulateError
+    });
+  } catch (err) {
+    sendJson(res, 400, { error: "invalid_json" });
+  }
+}
+
 function startStatusServer() {
   const server = http.createServer((req, res) => {
-    if (req.url === "/health") {
-      res.writeHead(200, { "content-type": "application/json" });
-      res.end(
-        JSON.stringify({
-          status: "ok",
-          rabbitmq: status.rabbitmq,
-          startedAt: status.startedAt,
-          lastProcessedAt: status.lastProcessedAt,
-          lastOutcome: status.lastOutcome,
-          lastError: status.lastError
-        })
-      );
+    const url = new URL(req.url || "/", "http://localhost");
+    if (url.pathname === "/health") {
+      sendJson(res, 200, {
+        status: "ok",
+        rabbitmq: status.rabbitmq,
+        startedAt: status.startedAt,
+        lastProcessedAt: status.lastProcessedAt,
+        lastOutcome: status.lastOutcome,
+        lastError: status.lastError,
+        forceFail: runtime.forceFail,
+        simulateError: runtime.simulateError
+      });
+      return;
+    }
+    if (url.pathname === "/control") {
+      handleControl(req, res);
       return;
     }
     res.writeHead(404);
@@ -224,9 +290,8 @@ async function ensureTopology(channel) {
 }
 
 function shouldFail(amount) {
-  if (cfg.forceFail) return true;
+  if (runtime.forceFail) return true;
   if (amount <= 0) return true;
-  if (cfg.failRate > 0 && Math.random() < cfg.failRate) return true;
   return false;
 }
 
@@ -283,7 +348,7 @@ async function start() {
         return;
       }
 
-      if (cfg.simulateError) {
+      if (runtime.simulateError) {
         throw new Error("simulated_error");
       }
 

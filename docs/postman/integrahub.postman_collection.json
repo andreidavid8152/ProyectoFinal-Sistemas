@@ -1,9 +1,218 @@
 {
   "info": {
     "name": "IntegraHub",
-    "_postman_id": "TODO",
+    "_postman_id": "1b2f8b9e-0f3b-4e2a-9a5a-6d38b5f93c3c",
+    "description": "Coleccion para IntegraHub con happy path y casos de error.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
-  "item": []
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Obtener token (JWT)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (data && data.access_token) {",
+                  "  pm.collectionVariables.set(\"jwt\", data.access_token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{auth_user}}\",\n  \"password\": \"{{auth_password}}\"\n}"
+            },
+            "url": "{{auth_url}}/token",
+            "description": "Obtiene un JWT valido para invocar Order API."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Happy Path",
+      "item": [
+        {
+          "name": "Crear pedido (happy path)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (data && data.order && data.order.id) {",
+                  "  pm.collectionVariables.set(\"order_id\", data.order.id);",
+                  "}",
+                  "if (data && data.correlationId) {",
+                  "  pm.collectionVariables.set(\"correlation_id\", data.correlationId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"sku\": \"{{sku_ok}}\",\n      \"qty\": 1,\n      \"price\": 9.99\n    }\n  ],\n  \"total\": 9.99,\n  \"currency\": \"USD\"\n}"
+            },
+            "url": "{{order_api_url}}/orders",
+            "description": "Precondicion: el SKU debe existir en inventario."
+          }
+        },
+        {
+          "name": "Consultar pedido",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt}}"
+              }
+            ],
+            "url": "{{order_api_url}}/orders/{{order_id}}",
+            "description": "Consulta el estado usando el order_id del request anterior."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Errores",
+      "item": [
+        {
+          "name": "Token invalido",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer token_invalido"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"sku\": \"{{sku_ok}}\",\n      \"qty\": 1,\n      \"price\": 9.99\n    }\n  ],\n  \"total\": 9.99,\n  \"currency\": \"USD\"\n}"
+            },
+            "url": "{{order_api_url}}/orders",
+            "description": "Debe responder 401 por token invalido."
+          }
+        },
+        {
+          "name": "Pago falla",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"sku\": \"{{sku_ok}}\",\n      \"qty\": 1,\n      \"price\": 9.99\n    }\n  ],\n  \"total\": 0,\n  \"currency\": \"USD\"\n}"
+            },
+            "url": "{{order_api_url}}/orders",
+            "description": "Forza fallo en Payment Service (amount <= 0). Requiere inventario OK."
+          }
+        },
+        {
+          "name": "Inventario insuficiente",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"sku\": \"{{sku_ok}}\",\n      \"qty\": 100,\n      \"price\": 9.99\n    }\n  ],\n  \"total\": 999,\n  \"currency\": \"USD\"\n}"
+            },
+            "url": "{{order_api_url}}/orders",
+            "description": "Requiere SKU existente con stock menor a la cantidad solicitada."
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "auth_url",
+      "value": "http://localhost:8082",
+      "type": "string"
+    },
+    {
+      "key": "order_api_url",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "auth_user",
+      "value": "demo",
+      "type": "string"
+    },
+    {
+      "key": "auth_password",
+      "value": "admin",
+      "type": "string"
+    },
+    {
+      "key": "sku_ok",
+      "value": "SKU-100",
+      "type": "string"
+    },
+    {
+      "key": "jwt",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "order_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "correlation_id",
+      "value": "",
+      "type": "string"
+    }
+  ]
 }
-

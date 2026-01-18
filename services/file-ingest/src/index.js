@@ -149,7 +149,7 @@ function validateFields(sku, qtyRaw, priceRaw) {
   }
 
   const price = parseFloat(priceRaw);
-  if (!Number.isFinite(price) || price < 0) {
+  if (!Number.isFinite(price) || price <= 0) {
     return { error: "invalid_price" };
   }
 
