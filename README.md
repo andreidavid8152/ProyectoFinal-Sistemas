@@ -10,8 +10,8 @@ Estructura base para la plataforma de integracion del flujo Order-to-Cash.
 - Seguridad, resiliencia e idempotencia
 
 ## Arranque (placeholder)
-1. Completar `compose.yml` y `.env.example`.
-2. Ejecutar: `docker compose up -d`
+1. Copiar `.env.example` a `.env` y llenar los espacios vacios.
+2. Ejecutar: `docker compose up --build -d`
 
 ## Estructura
 - `services/` servicios de negocio y demo portal
